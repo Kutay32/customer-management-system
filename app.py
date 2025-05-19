@@ -93,4 +93,10 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Get host and port from environment variables with defaults
+    # 0.0.0.0 makes the app publicly accessible
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('DEBUG', 'True').lower() == 'true'
+
+    app.run(host=host, port=port, debug=debug)
