@@ -1,19 +1,19 @@
 # Customer Management System
 
-A simple web application for managing customer information, built with Python, Flask, and Microsoft SQL Server.
+A simple web application for managing customer information, built with Python, Flask, and MySQL.
 
 ## Features
 
 - RESTful API for customer data management
 - Web interface for easy interaction
 - CRUD operations (Create, Read, Update, Delete)
-- Integration with Microsoft SQL Server
+- Integration with MySQL (with SQLite fallback option)
 
 ## Requirements
 
 - Python 3.8+
-- Microsoft SQL Server
-- ODBC Driver 17 for SQL Server
+- MySQL (or SQLite for development)
+- PyMySQL
 
 ## Installation
 
@@ -35,8 +35,15 @@ A simple web application for managing customer information, built with Python, F
    ```
 
 4. Configure the database:
-   - Create a database named `CustomerDB` in Microsoft SQL Server
-   - Update the `.env` file with your database connection details if needed
+   - For MySQL: Create a database named `CustomerDB` in MySQL
+   - Update the `.env` file with your database connection details:
+     ```
+     # For MySQL
+     DATABASE_URL=mysql+pymysql://username:password@localhost/CustomerDB
+
+     # Or for SQLite (default for development)
+     DATABASE_URL=sqlite:///customer.db
+     ```
 
 ## Running the Application
 
