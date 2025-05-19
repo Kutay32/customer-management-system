@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Customer Management System</h1>
+
+        <div class="row">
+            <!-- Customer Form -->
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 id="formTitle"><i class="fas fa-user-plus me-2"></i>Add New Customer</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="customerForm">
+                            <input type="hidden" id="customerId">
+                            <div class="mb-3">
+                                <label for="name" class="form-label"><i class="fas fa-user me-2"></i>Name</label>
+                                <input type="text" class="form-control" id="name" placeholder="Enter full name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label"><i class="fas fa-envelope me-2"></i>Email</label>
+                                <input type="email" class="form-control" id="email" placeholder="Enter email address" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="phone" class="form-label"><i class="fas fa-phone me-2"></i>Phone</label>
+                                <input type="text" class="form-control" id="phone" placeholder="Enter phone number">
+                            </div>
+                            <div class="mb-3">
+                                <label for="address" class="form-label"><i class="fas fa-map-marker-alt me-2"></i>Address</label>
+                                <textarea class="form-control" id="address" rows="3" placeholder="Enter full address"></textarea>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Save Customer
+                                </button>
+                                <button type="button" id="cancelBtn" class="btn btn-secondary hidden">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer List -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-users me-2"></i>Customer List</h5>
+                        <div class="input-group" style="max-width: 300px;">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search customers...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th><i class="fas fa-hashtag me-1"></i>ID</th>
+                                        <th><i class="fas fa-user me-1"></i>Name</th>
+                                        <th><i class="fas fa-envelope me-1"></i>Email</th>
+                                        <th><i class="fas fa-phone me-1"></i>Phone</th>
+                                        <th><i class="fas fa-map-marker-alt me-1"></i>Address</th>
+                                        <th><i class="fas fa-cogs me-1"></i>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customerList">
+                                    <!-- Customer data will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variable to store all customers
+        let allCustomers = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load customers when page loads
+            loadCustomers();
+
+            // Form submission
+            document.getElementById('customerForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveCustomer();
+            });
+
+            // Cancel button
+            document.getElementById('cancelBtn').addEventListener('click', function() {
+                resetForm();
+            });
+
+            // Search functionality
+            document.getElementById('searchInput').addEventListener('keyup', function() {
+                filterCustomers();
+            });
+
+            document.getElementById('searchBtn').addEventListener('click', function() {
+                filterCustomers();
+            });
+        });
+
+        // Filter customers based on search input
+        function filterCustomers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            if (!searchTerm) {
+                displayCustomers(allCustomers);
+                return;
+            }
+
+            const filteredCustomers = allCustomers.filter(customer => {
+                return (
+                    customer.name.toLowerCase().includes(searchTerm) ||
+                    customer.email.toLowerCase().includes(searchTerm) ||
+                    (customer.phone && customer.phone.toLowerCase().includes(searchTerm)) ||
+                    (customer.address && customer.address.toLowerCase().includes(searchTerm))
+                );
+            });
+
+            displayCustomers(filteredCustomers);
+        }
+
+        // Load all customers
+        function loadCustomers() {
+            fetch('/api/customers')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    allCustomers = data;
+                    displayCustomers(allCustomers);
+                })
+                .catch(error => {
+                    console.error('Error loading customers:', error);
+                    showNotification('Error loading customers', 'danger');
+                });
+        }
+
+        // Display customers in the table
+        function displayCustomers(customers) {
+            const customerList = document.getElementById('customerList');
+            customerList.innerHTML = '';
+
+            if (customers.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="6" class="text-center py-4">
+                        <i class="fas fa-info-circle me-2"></i>No customers found
+                    </td>
+                `;
+                customerList.appendChild(emptyRow);
+                return;
+            }
+
+            customers.forEach(customer => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${customer.id}</td>
+                    <td>${customer.name}</td>
+                    <td>${customer.email}</td>
+                    <td>${customer.phone || '<span class="text-muted">Not provided</span>'}</td>
+                    <td>${customer.address || '<span class="text-muted">Not provided</span>'}</td>
+                    <td class="action-buttons">
+                        <button class="btn btn-sm btn-primary" onclick="editCustomer(${customer.id})">
+                            <i class="fas fa-edit me-1"></i>Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${customer.id})">
+                            <i class="fas fa-trash-alt me-1"></i>Delete
+                        </button>
+                    </td>
+                `;
+                customerList.appendChild(row);
+            });
+        }
+
+        // Save customer (create or update)
+        function saveCustomer() {
+            const customerId = document.getElementById('customerId').value;
+            const customerData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                address: document.getElementById('address').value
+            };
+
+            const url = customerId ? `/api/customers/${customerId}` : '/api/customers';
+            const method = customerId ? 'PUT' : 'POST';
+            const actionText = customerId ? 'updated' : 'added';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(customerData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok.');
+                }
+                // First check if there's content to parse
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json().then(data => {
+                        // Success path - reset form, reload customers, show success notification
+                        resetForm();
+                        loadCustomers();
+                        showNotification(`Customer ${actionText} successfully!`, 'success');
+                        return data;
+                    });
+                } else {
+                    // Handle empty responses (like 204 No Content)
+                    resetForm();
+                    loadCustomers();
+                    showNotification(`Customer ${actionText} successfully!`, 'success');
+                    return null;
+                }
+            })
+            .catch(error => {
+                console.error(`Error ${actionText} customer:`, error);
+                showNotification(`Error ${actionText} customer`, 'danger');
+            });
+        }
+
+        // Edit customer
+        function editCustomer(id) {
+            fetch(`/api/customers/${id}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    return response.json();
+                })
+                .then(customer => {
+                    document.getElementById('customerId').value = customer.id;
+                    document.getElementById('name').value = customer.name;
+                    document.getElementById('email').value = customer.email;
+                    document.getElementById('phone').value = customer.phone || '';
+                    document.getElementById('address').value = customer.address || '';
+
+                    document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-edit me-2"></i>Edit Customer';
+                    document.getElementById('cancelBtn').classList.remove('hidden');
+
+                    // Scroll to form on mobile
+                    if (window.innerWidth < 992) {
+                        document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading customer details:', error);
+                    showNotification('Error loading customer details', 'danger');
+                });
+        }
+
+        // Delete customer
+        function deleteCustomer(id) {
+            if (confirm('Are you sure you want to delete this customer?')) {
+                fetch(`/api/customers/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    loadCustomers();
+                    showNotification('Customer deleted successfully!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error deleting customer:', error);
+                    showNotification('Error deleting customer', 'danger');
+                });
+            }
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerId').value = '';
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>Add New Customer';
+            document.getElementById('cancelBtn').classList.add('hidden');
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} notification`;
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+
+            // Add notification to the page
+            document.body.appendChild(notification);
+
+            // Add styles
+            Object.assign(notification.style, {
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: '1050',
+                minWidth: '300px',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                animation: 'slideIn 0.3s ease-out forwards'
+            });
+
+            // Add keyframes for animation
+            if (!document.getElementById('notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.innerHTML = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Remove notification after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in forwards';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
