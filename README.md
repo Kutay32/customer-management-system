@@ -54,12 +54,60 @@ A simple web application for managing customer information, built with Python, F
 
 2. Run the Flask application:
    ```
+   # For local development
    flask run
+
+   # For public access
+   python app.py
    ```
 
 3. Access the application:
-   - Web interface: http://localhost:5000
-   - API endpoints: http://localhost:5000/api/customers
+   - Local development:
+     - Web interface: http://localhost:5000
+     - API endpoints: http://localhost:5000/api/customers
+
+   - Public access:
+     - Web interface: http://your-ip-address:5000
+     - API endpoints: http://your-ip-address:5000/api/customers
+
+   Note: Replace `your-ip-address` with your actual IP address or domain name.
+
+4. Configuration (via .env file):
+   - `HOST`: Set to `0.0.0.0` for public access or `127.0.0.1` for local-only access
+   - `PORT`: Default is `5000`, change as needed
+   - `DEBUG`: Set to `True` for development or `False` for production
+
+## Production Deployment
+
+For deploying this application in a production environment, consider the following recommendations:
+
+1. Use a WSGI server:
+   ```
+   # Install Gunicorn
+   pip install gunicorn
+
+   # Run with Gunicorn
+   gunicorn -w 4 -b 0.0.0.0:5000 app:app
+   ```
+
+   Or with uWSGI:
+   ```
+   # Install uWSGI
+   pip install uwsgi
+
+   # Run with uWSGI
+   uwsgi --http 0.0.0.0:5000 --module app:app --processes 4
+   ```
+
+2. Security considerations:
+   - Set `DEBUG=False` in your .env file
+   - Consider implementing API authentication for public deployments
+   - Use HTTPS for secure communication
+   - Consider using a reverse proxy like Nginx or Apache
+
+3. Database considerations:
+   - For production, consider using a more robust database like MySQL or PostgreSQL
+   - Update the DATABASE_URL in your .env file accordingly
 
 ## API Endpoints
 

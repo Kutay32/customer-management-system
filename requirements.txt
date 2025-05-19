@@ -4,4 +4,9 @@ Flask-SQLAlchemy==3.1.1
 PyMySQL==1.1.0
 python-dotenv==1.0.0
 cryptography==41.0.3
+
+# Optional production dependencies
+# Uncomment as needed
+# gunicorn==21.2.0
+# uwsgi==2.0.22
 gunicorn
