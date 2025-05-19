@@ -14,6 +14,11 @@
     </style>
 </head>
 <body>
+    <!-- Page Loader -->
+    <div class="page-loader">
+        <div class="loader"></div>
+    </div>
+
     <div class="container">
         <h1 class="mb-4">Customer Management System</h1>
 
@@ -98,6 +103,11 @@
         let allCustomers = [];
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Hide loader when page is loaded
+            setTimeout(function() {
+                document.querySelector('.page-loader').classList.add('loaded');
+            }, 800);
+
             // Load customers when page loads
             loadCustomers();
 
@@ -119,6 +129,21 @@
 
             document.getElementById('searchBtn').addEventListener('click', function() {
                 filterCustomers();
+            });
+
+            // Add tooltip-like hover effects to table headers
+            document.querySelectorAll('th').forEach(th => {
+                th.setAttribute('title', `Sort by ${th.textContent.trim()}`);
+            });
+
+            // Add animation to form icons
+            document.querySelectorAll('.form-label i').forEach(icon => {
+                icon.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.2) rotate(5deg)';
+                });
+                icon.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1) rotate(0)';
+                });
             });
         });
 
@@ -310,12 +335,24 @@
         function showNotification(message, type) {
             // Create notification element
             const notification = document.createElement('div');
-            notification.className = `alert alert-${type} notification`;
+            notification.className = `notification notification-${type}`;
+
+            // Set icon based on notification type
+            let icon = 'info-circle';
+            if (type === 'success') icon = 'check-circle';
+            else if (type === 'danger') icon = 'exclamation-circle';
+            else if (type === 'warning') icon = 'exclamation-triangle';
+
             notification.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
-                    <span>${message}</span>
+                <div class="notification-icon">
+                    <i class="fas fa-${icon}"></i>
                 </div>
+                <div class="notification-content">
+                    <div class="notification-message">${message}</div>
+                </div>
+                <button class="notification-close">
+                    <i class="fas fa-times"></i>
+                </button>
             `;
 
             // Add notification to the page
@@ -327,35 +364,117 @@
                 top: '20px',
                 right: '20px',
                 zIndex: '1050',
+                display: 'flex',
+                alignItems: 'center',
                 minWidth: '300px',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                animation: 'slideIn 0.3s ease-out forwards'
+                padding: '15px',
+                borderRadius: 'var(--border-radius)',
+                background: 'var(--glass-bg)',
+                backdropFilter: 'blur(10px)',
+                border: 'var(--glass-border)',
+                boxShadow: 'var(--glass-shadow)',
+                animation: 'slideIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards'
             });
 
-            // Add keyframes for animation
+            // Add specific styles based on notification type
+            const colors = {
+                success: { bg: 'rgba(76, 201, 240, 0.1)', color: 'var(--success-color)' },
+                danger: { bg: 'rgba(249, 65, 68, 0.1)', color: 'var(--danger-color)' },
+                warning: { bg: 'rgba(248, 150, 30, 0.1)', color: 'var(--warning-color)' },
+                info: { bg: 'rgba(67, 97, 238, 0.1)', color: 'var(--primary-color)' }
+            };
+
+            const typeColor = colors[type] || colors.info;
+            notification.style.borderLeft = `4px solid ${typeColor.color}`;
+            notification.style.backgroundColor = typeColor.bg;
+
+            // Style the icon
+            const iconElement = notification.querySelector('.notification-icon');
+            Object.assign(iconElement.style, {
+                color: typeColor.color,
+                fontSize: '1.5rem',
+                marginRight: '15px'
+            });
+
+            // Style the content
+            const contentElement = notification.querySelector('.notification-content');
+            Object.assign(contentElement.style, {
+                flex: '1'
+            });
+
+            // Style the close button
+            const closeButton = notification.querySelector('.notification-close');
+            Object.assign(closeButton.style, {
+                background: 'none',
+                border: 'none',
+                color: 'var(--gray-color)',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                padding: '5px',
+                marginLeft: '10px',
+                transition: 'var(--transition)'
+            });
+
+            // Add hover effect to close button
+            closeButton.addEventListener('mouseenter', function() {
+                this.style.color = typeColor.color;
+                this.style.transform = 'scale(1.2)';
+            });
+
+            closeButton.addEventListener('mouseleave', function() {
+                this.style.color = 'var(--gray-color)';
+                this.style.transform = 'scale(1)';
+            });
+
+            // Add click handler to close button
+            closeButton.addEventListener('click', function() {
+                closeNotification(notification);
+            });
+
+            // Add keyframes for animation if not already added
             if (!document.getElementById('notification-styles')) {
                 const style = document.createElement('style');
                 style.id = 'notification-styles';
                 style.innerHTML = `
                     @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
+                        from { transform: translateX(120%); opacity: 0; }
                         to { transform: translateX(0); opacity: 1; }
                     }
                     @keyframes slideOut {
                         from { transform: translateX(0); opacity: 1; }
-                        to { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(120%); opacity: 0; }
+                    }
+                    @keyframes bounce {
+                        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+                        40% { transform: translateY(-10px); }
+                        60% { transform: translateY(-5px); }
                     }
                 `;
                 document.head.appendChild(style);
             }
 
-            // Remove notification after 3 seconds
+            // Add a slight bounce animation after sliding in
             setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-in forwards';
+                notification.style.animation = 'bounce 0.8s ease';
+            }, 500);
+
+            // Function to close notification
+            function closeNotification(notif) {
+                notif.style.animation = 'slideOut 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards';
                 setTimeout(() => {
-                    notification.remove();
-                }, 300);
-            }, 3000);
+                    notif.remove();
+                }, 500);
+            }
+
+            // Auto-remove notification after 5 seconds
+            const timeout = setTimeout(() => {
+                closeNotification(notification);
+            }, 5000);
+
+            // Clear timeout if manually closed
+            closeButton.addEventListener('click', function() {
+                clearTimeout(timeout);
+            });
         }
     </script>
 </body>
