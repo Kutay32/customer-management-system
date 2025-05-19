@@ -128,7 +128,7 @@ customer-management-system/
 
 ## Architecture
 
-This project follows the 4+1 architectural model. For detailed architectural documentation, see [docs/architecture.md](docs/architecture.md).
+This project follows the 4+1 architectural model as requested. For detailed architectural documentation, see [docs/architecture.md](docs/architecture.md).
 
 ## License
 
