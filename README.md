@@ -1,5 +1,12 @@
-# Customer Management System
-
+# Customer Management System Project 
+  ```
+   Team
+   Kutay Orallı - 220911791
+   Berk Günberk - 220911759
+   Eyüpcan Işıkgör - 210911023
+   Beril Çitil - 210911031
+  ```
+## Oversight
 A simple web application for managing customer information, built with Python, Flask, and MySQL.
 
 ## Features
