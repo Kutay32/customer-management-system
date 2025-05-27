@@ -91,7 +91,7 @@ customer-management-system/
 
 ### Technology Stack
 - **Backend**: Python, Flask, Flask-RESTful, SQLAlchemy
-- **Database**: Microsoft SQL Server
+- **Database**: Mysql
 - **Frontend**: HTML, CSS (Bootstrap), JavaScript
 - **API**: RESTful architecture
 
