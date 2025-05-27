@@ -32,17 +32,19 @@ This document outlines the architectural design of the Customer Management Syste
 
 ### Use Case Diagram
 ```
-+-------------------+       +----------------------+
-|                   |       |                      |
-|  Administrator    +------>+ Manage Customers     |
-|                   |       |                      |
-+-------------------+       +----------------------+
-                            
-+-------------------+       +----------------------+
-|                   |       |                      |
-|  API Consumer     +------>+ API Integration      |
-|                   |       |                      |
-+-------------------+       +----------------------+
+    +----------------------+                               +----------------------+
+    |       Actor:         |                               |       Actor:         |
+    |   Administrator       |                               |    API Consumer      |
+    +----------------------+                               +----------------------+
+               |                                                   |
+               v                                                   v
+     +--------------------+                               +-----------------------+
+     | Use Case:          |                               | Use Case:             |
+     | Manage Customers   |                               | External Integration  |
+     +--------------------+                               +-----------------------+
+               |                                                   |
+               +---------------------------------------------------+
+                            Interacts with Customer Management System
 ```
 
 ## 2. Logical View
@@ -54,19 +56,31 @@ This document outlines the architectural design of the Customer Management Syste
 
 ### Class Diagram
 ```
-+-------------------+       +----------------------+       +-------------------+
-|                   |       |                      |       |                   |
-|  Flask App        +------>+  Customer Resource   +------>+  Customer Model   |
-|                   |       |                      |       |                   |
-+-------------------+       +----------------------+       +-------------------+
-        |                                                          |
-        |                                                          |
-        v                                                          v
-+-------------------+                                     +-------------------+
-|                   |                                     |                   |
-|  Web Interface    |                                     |  Database (SQL)   |
-|                   |                                     |                   |
-+-------------------+                                     +-------------------+
++-------------------------+
+|       Flask App         |
++-------------------------+
+| +handle_request(): void |
++-------------------------+
+           |
+           v
++-------------------------+                 +--------------------------+
+| Customer Resource       |<>------------->|       Customer Model     |
++-------------------------+ composition     +--------------------------+
+| +add_customer(): void   |                | - id: int               |
+| +edit_customer(): void  |                | - name: string          |
+| +delete_customer(): void|                | - email: string         |
+| +get_customer(): object |                | - phone: string         |
+| +validate_input(): bool |                | +save(): void           |
++-------------------------+                +--------------------------+
+
+               |                                    ^
+               |                                    |
+               v                                    |
++--------------------------+                       |
+|         Database         |-----------------------+ SQL-Based Integration
++--------------------------+
+| +perform_query(): result |
++--------------------------+
 ```
 
 ### Component Description
@@ -114,36 +128,33 @@ customer-management-system/
 
 ### Sequence Diagram for Customer Creation
 ```
-+-------------+     +-------------+     +-------------+     +-------------+
-|             |     |             |     |             |     |             |
-|    Client   |     |  Flask App  |     |  Customer   |     |  Database   |
-|             |     |             |     |   Model     |     |             |
-+------+------+     +------+------+     +------+------+     +------+------+
-       |                   |                   |                   |
-       | POST /customers   |                   |                   |
-       +------------------>+                   |                   |
-       |                   | Create Customer   |                   |
-       |                   +------------------>+                   |
-       |                   |                   | Save to Database  |
-       |                   |                   +------------------>+
-       |                   |                   |                   |
-       |                   |                   |     Saved OK      |
-       |                   |                   +<------------------+
-       |                   |    Return 201     |                   |
-       |<------------------+                   |                   |
-       |                   |                   |                   |
+Client                          Flask App                Customer Model      Database
+   |                                |                         |                 |
+   | POST /customers                |                         |                 |
+   |------------------------------->|                         |                 |
+   |                                | validate input          |                 |
+   |                                |------------------------>|                 |
+   |                                |                         | save to DB      |
+   |                                |                         |---------------->|
+   |                                |                         |   success       |
+   |                                |                         |<----------------|
+   |  Return HTTP 201               |                         |                 |
+   |<-------------------------------|                         |                 |
 ```
 
 ## 5. Physical View
 
 ### Deployment Diagram
-```
-+-------------------+       +----------------------+       +-------------------+
-|                   |       |                      |       |                   |
-|  Web Browser      +------>+  Web Server (Flask)  +------>+  SQL Server DB    |
-|                   |       |                      |       |                   |
-+-------------------+       +----------------------+       +-------------------+
-```
+                +----------------------+        +-------------------------+
+                |    Web Browser       |        | SQL Server Database     |
+                | (Frontend Interface) |        | (Backend Storage)       |
+                +----------------------+        +-------------------------+
+                           |                                   |
+                           v                                   v
+                +---------------------------------------------+
+                |               Flask Web Server              |
+                | (Handles App Requests + RESTful API Routes) |
+                +---------------------------------------------+
 
 ### Deployment Considerations
 - The application can be deployed on any server that supports Python
@@ -154,3 +165,21 @@ customer-management-system/
 ## Conclusion
 
 This architecture provides a solid foundation for the Customer Management System, allowing for easy maintenance and future enhancements. The RESTful API design enables integration with other systems, while the web interface provides a user-friendly way to manage customer data.
+```
++-------------------------+
+|         app.py          |
+|  Main Flask Application |
++-------------------------+
+         |
+         |
++-------------------------+         +--------------------------+
+| Customer Resource       |         | API Documentation       |
++-------------------------+         +--------------------------+
+| Handles all requests    |         | Includes OpenAPI specs  |
+| (CRUD logic)            |         | for integration         |
++-------------------------+         +--------------------------+
+         |
++-------------------------+         +--------------------------+
+|     Templates           |         |      Static Assets      |
+| (HTML Frontend)         |         | (CSS/JavaScript)        |
++-------------------------+         +--------------------------+
