@@ -83,6 +83,8 @@ This document outlines the architectural design of the Customer Management Syste
 customer-management-system/
 ├── app.py                  # Main application file
 ├── requirements.txt        # Python dependencies
+├── instances/              # Database Instances
+│   └── customer.db         # Customer Database 
 ├── templates/              # HTML templates
 │   └── index.html          # Main UI template
 └── docs/                   # Documentation
