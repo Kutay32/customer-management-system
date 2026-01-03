@@ -1,7 +1,9 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, render_template
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_
 import os
+import re
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -40,6 +42,30 @@ class Customer(db.Model):
             'address': self.address
         }
 
+# Validation helpers
+EMAIL_REGEX = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+def validate_customer_payload(data, existing_customer=None):
+    errors = {}
+    name = (data.get('name') or '').strip()
+    email = (data.get('email') or '').strip()
+
+    if not name:
+        errors['name'] = 'Name is required.'
+    if not email:
+        errors['email'] = 'Email is required.'
+    elif not EMAIL_REGEX.match(email):
+        errors['email'] = 'Email must be a valid address.'
+
+    if email:
+        existing = Customer.query.filter_by(email=email)
+        if existing_customer:
+            existing = existing.filter(Customer.id != existing_customer.id)
+        if existing.first():
+            errors['email'] = 'Email already exists.'
+
+    return errors, name, email
+
 # Create database tables
 with app.app_context():
     db.create_all()
@@ -49,34 +75,98 @@ class CustomerResource(Resource):
     def get(self, customer_id=None):
         if customer_id:
             customer = Customer.query.get_or_404(customer_id)
-            return jsonify(customer.to_dict())
+            return customer.to_dict()
         else:
-            customers = Customer.query.all()
-            return jsonify([customer.to_dict() for customer in customers])
+            search = request.args.get('search', '').strip()
+            sort_by = request.args.get('sort_by', 'name')
+            sort_dir = request.args.get('sort_dir', 'asc')
+            page = request.args.get('page', default=1, type=int)
+            per_page = request.args.get('per_page', default=10, type=int)
+
+            per_page = max(1, min(per_page, 100))
+
+            query = Customer.query
+            if search:
+                like = f"%{search}%"
+                query = query.filter(
+                    or_(
+                        Customer.name.ilike(like),
+                        Customer.email.ilike(like),
+                        Customer.phone.ilike(like),
+                        Customer.address.ilike(like)
+                    )
+                )
+
+            sort_options = {
+                'id': Customer.id,
+                'name': Customer.name,
+                'email': Customer.email,
+                'phone': Customer.phone,
+                'address': Customer.address
+            }
+            sort_column = sort_options.get(sort_by, Customer.name)
+            if sort_dir == 'desc':
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+            return {
+                'items': [customer.to_dict() for customer in pagination.items],
+                'page': page,
+                'per_page': per_page,
+                'total': pagination.total,
+                'pages': pagination.pages
+            }
 
     def post(self):
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
+        errors, name, email = validate_customer_payload(data)
+
+        if errors:
+            return {'errors': errors}, 400
+
         new_customer = Customer(
-            name=data['name'],
-            email=data['email'],
-            phone=data.get('phone', ''),
-            address=data.get('address', '')
+            name=name,
+            email=email,
+            phone=(data.get('phone') or '').strip(),
+            address=(data.get('address') or '').strip()
         )
         db.session.add(new_customer)
         db.session.commit()
-        return jsonify(new_customer.to_dict()), 201
+        return new_customer.to_dict(), 201
 
     def put(self, customer_id):
         customer = Customer.query.get_or_404(customer_id)
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
+        if not data:
+            return {'message': 'No update data provided.'}, 400
 
-        customer.name = data.get('name', customer.name)
-        customer.email = data.get('email', customer.email)
-        customer.phone = data.get('phone', customer.phone)
-        customer.address = data.get('address', customer.address)
+        name = (data.get('name', customer.name) or '').strip()
+        email = (data.get('email', customer.email) or '').strip()
+        errors = {}
+
+        if not name:
+            errors['name'] = 'Name is required.'
+        if not email:
+            errors['email'] = 'Email is required.'
+        elif not EMAIL_REGEX.match(email):
+            errors['email'] = 'Email must be a valid address.'
+        elif email != customer.email:
+            if Customer.query.filter_by(email=email).first():
+                errors['email'] = 'Email already exists.'
+
+        if errors:
+            return {'errors': errors}, 400
+
+        customer.name = name
+        customer.email = email
+        customer.phone = (data.get('phone', customer.phone) or '').strip()
+        customer.address = (data.get('address', customer.address) or '').strip()
 
         db.session.commit()
-        return jsonify(customer.to_dict())
+        return customer.to_dict()
 
     def delete(self, customer_id):
         customer = Customer.query.get_or_404(customer_id)
@@ -84,8 +174,21 @@ class CustomerResource(Resource):
         db.session.commit()
         return '', 204
 
+class CustomerStatsResource(Resource):
+    def get(self):
+        total = Customer.query.count()
+        with_phone = Customer.query.filter(Customer.phone.isnot(None), Customer.phone != '').count()
+        with_address = Customer.query.filter(Customer.address.isnot(None), Customer.address != '').count()
+
+        return {
+            'total': total,
+            'with_phone': with_phone,
+            'with_address': with_address
+        }
+
 # Register API routes
 api.add_resource(CustomerResource, '/api/customers', '/api/customers/<int:customer_id>')
+api.add_resource(CustomerStatsResource, '/api/customers/stats')
 
 # Web routes
 @app.route('/')
