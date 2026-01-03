@@ -22,6 +22,42 @@
     <div class="container">
         <h1 class="mb-4">Customer Management System</h1>
 
+        <div class="row g-3 mb-4 stats-row">
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <div class="stats-icon bg-primary">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div>
+                        <p class="stats-label">Total Customers</p>
+                        <h3 id="totalCustomers" class="stats-value">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <div class="stats-icon bg-success">
+                        <i class="fas fa-phone-volume"></i>
+                    </div>
+                    <div>
+                        <p class="stats-label">With Phone</p>
+                        <h3 id="customersWithPhone" class="stats-value">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <div class="stats-icon bg-warning">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <div>
+                        <p class="stats-label">With Address</p>
+                        <h3 id="customersWithAddress" class="stats-value">0</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <!-- Customer Form -->
             <div class="col-lg-4 mb-4">
@@ -64,13 +100,41 @@
             <!-- Customer List -->
             <div class="col-lg-8">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-users me-2"></i>Customer List</h5>
-                        <div class="input-group" style="max-width: 300px;">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Search customers...">
-                            <button class="btn btn-outline-secondary" type="button" id="searchBtn">
-                                <i class="fas fa-search"></i>
-                            </button>
+                    <div class="card-header">
+                        <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-center">
+                            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Customer List</h5>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div class="input-group search-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" id="searchInput" class="form-control" placeholder="Search by name, email, phone..." aria-label="Search customers">
+                                    <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear search">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <select id="sortSelect" class="form-select form-select-sm w-auto">
+                                    <option value="name:asc">Name (A-Z)</option>
+                                    <option value="name:desc">Name (Z-A)</option>
+                                    <option value="email:asc">Email (A-Z)</option>
+                                    <option value="email:desc">Email (Z-A)</option>
+                                    <option value="id:desc">Newest</option>
+                                    <option value="id:asc">Oldest</option>
+                                </select>
+                                <select id="perPageSelect" class="form-select form-select-sm w-auto">
+                                    <option value="5">5 / page</option>
+                                    <option value="10" selected>10 / page</option>
+                                    <option value="20">20 / page</option>
+                                    <option value="50">50 / page</option>
+                                </select>
+                                <button class="btn btn-outline-light btn-sm" id="refreshBtn" title="Refresh">
+                                    <i class="fas fa-rotate"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small id="resultsCount" class="text-white-50">Showing 0 customers</small>
+                            <small class="text-white-50">Tip: Click a row to prefill the form</small>
                         </div>
                     </div>
                     <div class="card-body">
@@ -83,6 +147,7 @@
                                         <th><i class="fas fa-envelope me-1"></i>Email</th>
                                         <th><i class="fas fa-phone me-1"></i>Phone</th>
                                         <th><i class="fas fa-map-marker-alt me-1"></i>Address</th>
+                                        <th><i class="fas fa-check-circle me-1"></i>Status</th>
                                         <th><i class="fas fa-cogs me-1"></i>Actions</th>
                                     </tr>
                                 </thead>
@@ -90,6 +155,15 @@
                                     <!-- Customer data will be loaded here -->
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="pagination-wrapper">
+                            <button class="btn btn-outline-secondary btn-sm" id="prevPageBtn">
+                                <i class="fas fa-chevron-left me-1"></i>Prev
+                            </button>
+                            <div id="paginationNumbers" class="pagination-numbers"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="nextPageBtn">
+                                Next<i class="fas fa-chevron-right ms-1"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -99,8 +173,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Global variable to store all customers
-        let allCustomers = [];
+        const state = {
+            page: 1,
+            perPage: 10,
+            search: '',
+            sortBy: 'name',
+            sortDir: 'asc',
+            total: 0,
+            pages: 1,
+            lastActionId: null
+        };
+
+        let searchTimeout;
 
         document.addEventListener('DOMContentLoaded', function() {
             // Hide loader when page is loaded
@@ -110,6 +194,7 @@
 
             // Load customers when page loads
             loadCustomers();
+            loadStats();
 
             // Form submission
             document.getElementById('customerForm').addEventListener('submit', function(e) {
@@ -123,12 +208,48 @@
             });
 
             // Search functionality
-            document.getElementById('searchInput').addEventListener('keyup', function() {
-                filterCustomers();
+            document.getElementById('searchInput').addEventListener('input', function(e) {
+                state.search = e.target.value.trim();
+                state.page = 1;
+                debounceLoadCustomers();
             });
 
-            document.getElementById('searchBtn').addEventListener('click', function() {
-                filterCustomers();
+            document.getElementById('clearSearchBtn').addEventListener('click', function() {
+                document.getElementById('searchInput').value = '';
+                state.search = '';
+                state.page = 1;
+                loadCustomers();
+            });
+
+            document.getElementById('sortSelect').addEventListener('change', function(e) {
+                const [sortBy, sortDir] = e.target.value.split(':');
+                state.sortBy = sortBy;
+                state.sortDir = sortDir;
+                state.page = 1;
+                loadCustomers();
+            });
+
+            document.getElementById('perPageSelect').addEventListener('change', function(e) {
+                state.perPage = parseInt(e.target.value, 10);
+                state.page = 1;
+                loadCustomers();
+            });
+
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                loadCustomers();
+                loadStats();
+            });
+
+            document.getElementById('prevPageBtn').addEventListener('click', function() {
+                if (state.page > 1) {
+                    loadCustomers(state.page - 1);
+                }
+            });
+
+            document.getElementById('nextPageBtn').addEventListener('click', function() {
+                if (state.page < state.pages) {
+                    loadCustomers(state.page + 1);
+                }
             });
 
             // Add tooltip-like hover effects to table headers
@@ -147,30 +268,25 @@
             });
         });
 
-        // Filter customers based on search input
-        function filterCustomers() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-
-            if (!searchTerm) {
-                displayCustomers(allCustomers);
-                return;
-            }
-
-            const filteredCustomers = allCustomers.filter(customer => {
-                return (
-                    customer.name.toLowerCase().includes(searchTerm) ||
-                    customer.email.toLowerCase().includes(searchTerm) ||
-                    (customer.phone && customer.phone.toLowerCase().includes(searchTerm)) ||
-                    (customer.address && customer.address.toLowerCase().includes(searchTerm))
-                );
-            });
-
-            displayCustomers(filteredCustomers);
+        function debounceLoadCustomers() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadCustomers();
+            }, 300);
         }
 
         // Load all customers
-        function loadCustomers() {
-            fetch('/api/customers')
+        function loadCustomers(page = state.page) {
+            state.page = page;
+            const params = new URLSearchParams({
+                search: state.search,
+                page: state.page,
+                per_page: state.perPage,
+                sort_by: state.sortBy,
+                sort_dir: state.sortDir
+            });
+
+            fetch(`/api/customers?${params.toString()}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok.');
@@ -178,12 +294,33 @@
                     return response.json();
                 })
                 .then(data => {
-                    allCustomers = data;
-                    displayCustomers(allCustomers);
+                    state.total = data.total;
+                    state.pages = data.pages || 1;
+                    displayCustomers(data.items);
+                    updateResultsCount();
+                    updatePagination();
                 })
                 .catch(error => {
                     console.error('Error loading customers:', error);
                     showNotification('Error loading customers', 'danger');
+                });
+        }
+
+        function loadStats() {
+            fetch('/api/customers/stats')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    return response.json();
+                })
+                .then(stats => {
+                    document.getElementById('totalCustomers').textContent = stats.total;
+                    document.getElementById('customersWithPhone').textContent = stats.with_phone;
+                    document.getElementById('customersWithAddress').textContent = stats.with_address;
+                })
+                .catch(error => {
+                    console.error('Error loading stats:', error);
                 });
         }
 
@@ -195,8 +332,9 @@
             if (customers.length === 0) {
                 const emptyRow = document.createElement('tr');
                 emptyRow.innerHTML = `
-                    <td colspan="6" class="text-center py-4">
-                        <i class="fas fa-info-circle me-2"></i>No customers found
+                    <td colspan="7" class="text-center py-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        ${state.search ? 'No matching customers found' : 'No customers found'}
                     </td>
                 `;
                 customerList.appendChild(emptyRow);
@@ -205,13 +343,28 @@
 
             customers.forEach(customer => {
                 const row = document.createElement('tr');
+                if (state.lastActionId === customer.id) {
+                    row.classList.add('highlight');
+                }
+                row.addEventListener('click', function(event) {
+                    if (event.target.closest('button')) {
+                        return;
+                    }
+                    editCustomer(customer.id);
+                });
+
+                const statusBadge = getStatusBadge(customer);
                 row.innerHTML = `
                     <td>${customer.id}</td>
                     <td>${customer.name}</td>
                     <td>${customer.email}</td>
                     <td>${customer.phone || '<span class="text-muted">Not provided</span>'}</td>
                     <td>${customer.address || '<span class="text-muted">Not provided</span>'}</td>
+                    <td>${statusBadge}</td>
                     <td class="action-buttons">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="copyEmail('${customer.email}')">
+                            <i class="fas fa-copy me-1"></i>Copy
+                        </button>
                         <button class="btn btn-sm btn-primary" onclick="editCustomer(${customer.id})">
                             <i class="fas fa-edit me-1"></i>Edit
                         </button>
@@ -222,6 +375,19 @@
                 `;
                 customerList.appendChild(row);
             });
+        }
+
+        function getStatusBadge(customer) {
+            const hasPhone = customer.phone && customer.phone.trim().length > 0;
+            const hasAddress = customer.address && customer.address.trim().length > 0;
+
+            if (hasPhone && hasAddress) {
+                return '<span class="badge status-badge status-complete"><i class="fas fa-check-circle me-1"></i>Complete</span>';
+            }
+            if (hasPhone || hasAddress) {
+                return '<span class="badge status-badge status-partial"><i class="fas fa-circle-half-stroke me-1"></i>Partial</span>';
+            }
+            return '<span class="badge status-badge status-missing"><i class="fas fa-circle-xmark me-1"></i>Missing</span>';
         }
 
         // Save customer (create or update)
@@ -245,31 +411,25 @@
                 },
                 body: JSON.stringify(customerData)
             })
-            .then(response => {
+            .then(async response => {
+                const contentType = response.headers.get('content-type') || '';
+                const data = contentType.includes('application/json') ? await response.json() : null;
                 if (!response.ok) {
-                    throw new Error('Network response was not ok.');
+                    const errorMessage = data?.errors
+                        ? Object.values(data.errors).join(' ')
+                        : (data?.message || 'Network response was not ok.');
+                    throw new Error(errorMessage);
                 }
-                // First check if there's content to parse
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return response.json().then(data => {
-                        // Success path - reset form, reload customers, show success notification
-                        resetForm();
-                        loadCustomers();
-                        showNotification(`Customer ${actionText} successfully!`, 'success');
-                        return data;
-                    });
-                } else {
-                    // Handle empty responses (like 204 No Content)
-                    resetForm();
-                    loadCustomers();
-                    showNotification(`Customer ${actionText} successfully!`, 'success');
-                    return null;
-                }
+
+                resetForm();
+                state.lastActionId = data?.id || null;
+                loadCustomers();
+                loadStats();
+                showNotification(`Customer ${actionText} successfully!`, 'success');
             })
             .catch(error => {
                 console.error(`Error ${actionText} customer:`, error);
-                showNotification(`Error ${actionText} customer`, 'danger');
+                showNotification(error.message || `Error ${actionText} customer`, 'danger');
             });
         }
 
@@ -313,7 +473,11 @@
                     if (!response.ok) {
                         throw new Error('Network response was not ok.');
                     }
-                    loadCustomers();
+                    if (state.page > 1 && state.total - 1 <= (state.page - 1) * state.perPage) {
+                        state.page -= 1;
+                    }
+                    loadCustomers(state.page);
+                    loadStats();
                     showNotification('Customer deleted successfully!', 'success');
                 })
                 .catch(error => {
@@ -329,6 +493,49 @@
             document.getElementById('customerId').value = '';
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>Add New Customer';
             document.getElementById('cancelBtn').classList.add('hidden');
+        }
+
+        function updateResultsCount() {
+            const start = state.total === 0 ? 0 : (state.page - 1) * state.perPage + 1;
+            const end = Math.min(state.page * state.perPage, state.total);
+            const suffix = state.search ? `for "${state.search}"` : '';
+            document.getElementById('resultsCount').textContent = `Showing ${start}-${end} of ${state.total} ${suffix}`.trim();
+        }
+
+        function updatePagination() {
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const paginationNumbers = document.getElementById('paginationNumbers');
+
+            prevBtn.disabled = state.page <= 1;
+            nextBtn.disabled = state.page >= state.pages;
+            paginationNumbers.innerHTML = '';
+
+            const maxButtons = 5;
+            let startPage = Math.max(1, state.page - Math.floor(maxButtons / 2));
+            let endPage = Math.min(state.pages, startPage + maxButtons - 1);
+
+            if (endPage - startPage + 1 < maxButtons) {
+                startPage = Math.max(1, endPage - maxButtons + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const button = document.createElement('button');
+                button.className = `btn btn-sm ${i === state.page ? 'btn-primary' : 'btn-outline-secondary'}`;
+                button.textContent = i;
+                button.addEventListener('click', () => loadCustomers(i));
+                paginationNumbers.appendChild(button);
+            }
+        }
+
+        function copyEmail(email) {
+            navigator.clipboard.writeText(email)
+                .then(() => {
+                    showNotification('Email copied to clipboard', 'success');
+                })
+                .catch(() => {
+                    showNotification('Unable to copy email', 'warning');
+                });
         }
 
         // Show notification
